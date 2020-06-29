@@ -17,6 +17,7 @@ repull = False  # set to true to update all cached files
 refresh_cache = 60*60*72
 cache_refresh_time = time.time() - refresh_cache
 today = datetime.datetime.date(datetime.datetime.now())
+response_folder = 'dg_responses'
 
 
 class dg_stores(object):
@@ -83,7 +84,7 @@ class dg_stores(object):
         return False
 
     def get_dg_info(self, zipcode):
-        dg_cache_file = os.path.join('dg_responses', '{}.json'.format(zipcode))
+        dg_cache_file = os.path.join(response_folder, '{}.json'.format(zipcode))
         cached_check = self.__check_dg_file(dg_cache_file)
         if self.repull is False and cached_check:  # read from cache file
             reply = self.__read_dg_file(dg_cache_file)
@@ -206,6 +207,8 @@ class dg_stores(object):
 
 
 if __name__ == '__main__':
+    if not os.path.isdir(response_folder):
+        os.mkdir(response_folder)
     dg = dg_stores(appKey, repull)
     dg.get_zipcodes()
     dg.find_dg_stores()
