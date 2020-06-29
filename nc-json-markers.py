@@ -10,8 +10,7 @@ with open(csv_file, 'r') as csvh:
     for item in data:
         if item['state'] == 'NC':
             marker = {
-                'name': item['name'],
-                'description': 'open_date: {}'.format(item['open_date']),
+                'name': '{}  - open_date: {}'.format(item['name'], item['open_date']),
                 'location': [
                     float(item['latitude']),
                     float(item['longitude'])
