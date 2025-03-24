@@ -48,7 +48,6 @@ jobs:
       
     - name: Commit and push changes
       run: |
-        rm completed
         git config --global user.email "${{ github.actor.email }}"
         git config --global user.name "${{ github.actor.name }}"
         git add .

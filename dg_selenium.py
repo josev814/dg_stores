@@ -136,12 +136,15 @@ if __name__ == "__main__":
             print('api request')
             json_response = api_client.call_dg_api(lat, long)
             if json_response:
-                dg.save_zip_cache_response(cur_zip, json_response)
+                if 'message' not in json_response:
+                    dg.save_zip_cache_response(cur_zip, json_response)
+                else:
+                    print(json_response['message'])
             else:
                 print("Failed to get a valid response.")
                 continue
         
-        if len(json_response['stores']) > 0:
+        if 'stores' in json_response and len(json_response['stores']) > 0:
             if not csv_headers:
                 dg.set_headers(json_response['stores'][0])
                 csv_headers = dg.csvHeaders
@@ -152,5 +155,3 @@ if __name__ == "__main__":
     # Close the Selenium WebDriver when done
     api_client.close()
     dg.save_dg_stores()
-    with open('completed', 'w') as fh:
-        fh.write('done')
