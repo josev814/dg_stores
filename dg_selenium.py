@@ -152,3 +152,5 @@ if __name__ == "__main__":
     # Close the Selenium WebDriver when done
     api_client.close()
     dg.save_dg_stores()
+    with open('completed', 'w') as fh:
+        fh.write('done')
