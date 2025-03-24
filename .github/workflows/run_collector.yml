@@ -37,6 +37,7 @@ jobs:
           then
             break
           fi
+          docker logs collector
           echo "Not completed yet"
           ls -lat | grep csv
           sleep 30
