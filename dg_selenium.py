@@ -140,6 +140,8 @@ if __name__ == "__main__":
                 continue
             if 'message' in json_response:
                 print('Error:', json_response['message'])
+                if 'invalid session id' in json_response['message']:
+                    break
                 continue
             dg.save_zip_cache_response(cur_zip, json_response)
         
