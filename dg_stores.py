@@ -3,15 +3,13 @@ import csv
 import re
 import time
 import datetime
-import random
 import os
 
 import requests
-from requests.cookies import RequestsCookieJar
 
 
 int_regex = re.compile(r'^(\-)?[0-9]+(.[0-9]+)?$')
-debug = True
+debug = False
 repull = False  # set to true to update all cached files
 refresh_cache = 60*60*24*31  # every 31 days
 cache_refresh_time = time.time() - refresh_cache
