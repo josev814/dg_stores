@@ -14,12 +14,8 @@ from selenium.webdriver.common.by import By
 from dg_stores import dg_stores
 from get_latlongs import collect_latlongs
 
-int_regex = re.compile(r'^(\-)?[0-9]+(.[0-9]+)?$')
-debug = True
+
 repull = False  # set to true to update all cached files
-refresh_cache = 60*60*72
-cache_refresh_time = time.time() - refresh_cache
-today = datetime.datetime.date(datetime.datetime.now())
 response_folder = 'dg_responses'
 
 
@@ -43,7 +39,7 @@ class ApiClient:
         self.chrome_options.add_argument("--no-sandbox")  # Disable sandboxing, useful in CI environments
         self.chrome_options.add_argument("--disable-gpu")
         self.chrome_options.add_argument('--no-first-run')
-        self.chrome_options.add_argument(f'--disk-cache-size={128 * (1024 ** 3)}') # 128 MB
+        self.chrome_options.add_argument(f'--disk-cache-size={128 * (1024 ** 3)}')  # 128 MB
         #self.chrome_options.add_argument("--disable-dev-shm-usage")  # Overcome resource limits
         #self.chrome_options.add_argument("--remote-debugging-port=9222")  # Enables debugging
 
@@ -132,7 +128,7 @@ if __name__ == "__main__":
 
         # Step 2: Make an API call using the session, which retains the cookies
         lat, long = api_client.get_zip_lat_long(cur_zip)
-        resp_file = os.path.join('dg_responses', f'{cur_zip}.json')
+        resp_file = os.path.join(response_folder, f'{cur_zip}.json')
         if dg.check_dg_file(resp_file):  # cached_response
             print('reading from cache')
             json_response = dg.read_dg_file(resp_file)
