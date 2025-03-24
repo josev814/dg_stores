@@ -14,8 +14,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
     
-    - name: Set up Docker Compose
-      uses: docker/setup-docker-action@v1.4.3
+    - name: Set up Docker
+      uses: docker/setup-docker-action@v4.3.0
+
+    - name: Setup Docker Compose
+      uses: docker/setup-compose-action@v1.2.0
     
     - name: Build and start containers
       run: |
