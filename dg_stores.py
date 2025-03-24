@@ -13,7 +13,7 @@ from requests.cookies import RequestsCookieJar
 int_regex = re.compile(r'^(\-)?[0-9]+(.[0-9]+)?$')
 debug = True
 repull = False  # set to true to update all cached files
-refresh_cache = 60*60*72
+refresh_cache = 60*60*24*31  # every 31 days
 cache_refresh_time = time.time() - refresh_cache
 today = datetime.datetime.date(datetime.datetime.now())
 response_folder = 'dg_responses'

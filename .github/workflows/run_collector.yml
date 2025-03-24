@@ -1,13 +1,16 @@
 name: Run Docker Compose Collector
 
 on:
-  pull_request:
-    branches:
-      - master
+  schedule:
+    - cron: '0 0 1,15 * *'
   push:
     branches:
       - main
       - master
+
+env:
+  SCHEDULER_EMAIL: "githubworkflow@mailinator.com"
+  SCHEDULER_NAME: "Collector Workflow"
 
 jobs:
   build_and_start:
@@ -48,8 +51,15 @@ jobs:
       
     - name: Commit and push changes
       run: |
-        git config --global user.email "${{ github.actor.email }}"
-        git config --global user.name "${{ github.actor.name }}"
+        git config --global user.email "${{ github.actor.email || SCHEDULER_EMAIL }}"
+        git config --global user.name "${{ github.actor.name || SCHEDULER_NAME }}"
         git add .
+        if [[ $(git diff --cached | wc -l) -eq 0 ]]
+        then
+          echo "No changes to commit."
+          exit 0
+        fi
         git commit -m "Generated files from docker compose"
-        gh pr create --title "Automated PR from Collector Workflow" --body "This PR is created automatically by the GitHub Actions workflow triggered by ${GITHUB_ACTOR}."
+        gh pr create \
+          --title "Automated PR from Collector Workflow" \
+          --body "This PR is created automatically by the GitHub Actions workflow triggered by ${{ github.actor.name || SCHEDULER_NAME }}."
