@@ -281,6 +281,7 @@ class dg_stores(object):
             if test_zip not in self.zips:
                 self.unknown_zips.append(test_zip)
         print(self.unknown_zips)
+        return self.zips
 
     def save_dg_stores(self):
         headers = False
