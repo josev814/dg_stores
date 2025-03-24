@@ -33,7 +33,7 @@ jobs:
       run: |
         while true
         do
-          if [[ $(docker ps | grep collector | wc -l) -gt 0 ]]
+          if [[ $(docker ps | grep collector | wc -l) -eq 0 ]]
           then
             break
           fi
