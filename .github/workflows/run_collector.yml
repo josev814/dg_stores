@@ -31,17 +31,20 @@ jobs:
     
     - name: Wait for completed
       run: |
-        while true
+        docker ps
+        while [[ $(docker ps | grep collector | wc -l) -eq 0 ]]
         do
-          if [[ $(docker ps | grep collector | wc -l) -eq 0 ]]
-          then
-            break
-          fi
+          echo "waiting for collector"
+        done
+        docker ps
+        while [[ $(docker ps | grep collector | wc -l) -gt 0 ]]
+        do
           docker logs collector
           echo "Not completed yet"
           ls -lat | grep csv
           sleep 30
         done
+        docker ps
       
     - name: Commit and push changes
       run: |
