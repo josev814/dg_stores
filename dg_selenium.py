@@ -122,36 +122,39 @@ if __name__ == "__main__":
     # Step 1: Start the session by making an initial request to dollargeneral.com using Selenium
     api_client.start_session()
     csv_headers = None
-
+    proc_zips = zips.copy()
+    while len(proc_zips) > 0:
+        for cur_zip in proc_zips:
+            resp_file = os.path.join(response_folder, f'{cur_zip}.json')
+            if not dg.check_dg_file(resp_file):  # not cached_response
+                print('API call for:', cur_zip)
+                lat, long = api_client.get_zip_lat_long(cur_zip)
+                json_response = api_client.call_dg_api(lat, long)
+                if not json_response:
+                    print("Failed to get a valid response.")
+                    continue
+                if 'message' in json_response:
+                    print('Error:', json_response['message'])
+                    if 'invalid session id' in json_response['message']:
+                        api_client.__jitter_sleep(60)
+                        break  # break so we can start processing again
+                    continue
+                dg.save_zip_cache_response(cur_zip, json_response)
+                proc_zips.remove(cur_zip)
+                len(proc_zips)
+                time.sleep(5)
+    api_client.close()
+    print('Building csv from cached responses')
     for cur_zip in zips:
-        print(cur_zip)
-
-        # Step 2: Make an API call using the session, which retains the cookies
-        lat, long = api_client.get_zip_lat_long(cur_zip)
         resp_file = os.path.join(response_folder, f'{cur_zip}.json')
-        if dg.check_dg_file(resp_file):  # cached_response
-            print('reading from cache')
+        if os.path.is_file(resp_file):
             json_response = dg.read_dg_file(resp_file)
-        else:
-            print('api request')
-            json_response = api_client.call_dg_api(lat, long)
-            if not json_response:
-                print("Failed to get a valid response.")
-                continue
-            if 'message' in json_response:
-                print('Error:', json_response['message'])
-                if 'invalid session id' in json_response['message']:
-                    break
-                continue
-            dg.save_zip_cache_response(cur_zip, json_response)
-        
-        if 'stores' in json_response and len(json_response['stores']) > 0:
-            if not csv_headers:
-                dg.set_headers(json_response['stores'][0])
-                csv_headers = dg.csvHeaders
-            for store in json_response['stores']:
-                dg.set_csv_line(store)
+            if 'stores' in json_response and len(json_response['stores']) > 0:
+                if not csv_headers:
+                    dg.set_headers(json_response['stores'][0])
+                    csv_headers = dg.csvHeaders
+                for store in json_response['stores']:
+                    dg.set_csv_line(store)
 
     # Close the Selenium WebDriver when done
-    api_client.close()
     dg.save_dg_stores()
