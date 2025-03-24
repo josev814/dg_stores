@@ -1,4 +1,3 @@
-import requests
 import json
 import csv
 import re
@@ -7,12 +6,12 @@ import datetime
 import random
 import os
 
-from zipcodes.stateZipCodes import zipcodes
+import requests
+from requests.cookies import RequestsCookieJar
 
 
 int_regex = re.compile(r'^(\-)?[0-9]+(.[0-9]+)?$')
-debug = False
-appKey = "9E9DE426-8151-11E4-AEAC-765055A65BB0"
+debug = True
 repull = False  # set to true to update all cached files
 refresh_cache = 60*60*72
 cache_refresh_time = time.time() - refresh_cache
@@ -26,65 +25,46 @@ class dg_stores(object):
     zips = []
     unknown_zips = []
     get_headers = True
+    dg_url = 'https://www.dollargeneral.com'
 
-    def __init__(self, app_key, repull):
-        self.app_key = app_key
+    def __init__(self, config_file, repull):
         self.repull = repull
+        self.url_headers = {'User-Agent': 'Mozilla/5.0'}
+        # self.cookies = RequestsCookieJar()
+        # self.config_file = config_file
+        # self.load_cookies_from_config()
+        self.session = requests.Session()
+    
+    def __get_zip_latlong(self, zipcode):
+        with open('zipcode_locations.csv', 'r') as fh:
+            csvr = csv.DictReader(fh, fieldnames=[
+                'zipcode', 'latitude', 'longitude', 'city', 'state'
+            ])
+            lat = long = None
+            for entry in csvr:
+                if entry['zipcode'] == zipcode:
+                    lat, long = entry['latitude'], entry['longitude']
+            return (lat, long)
 
-    def __call_dg_api(self, zipcode):
-        country = 'US'
-        payload = {
-            "request": {
-                "appkey": self.app_key,
-                "formdata": {
-                    "geoip": "start",
-                    "dataview": "store_default",
-                    "geolocs": {
-                        "geoloc": [
-                            {
-                                "addressline": "{}".format(zipcode),
-                                "country": "{}".format(country),
-                                "latitude": "",
-                                "longitude": ""
-                            }
-                        ]
-                    },
-                    "searchradius": "100",
-                },
-                "geoip": False
-            }
-        }
-        if debug:
-            print(payload)
-        url = 'http://hosted.where2getit.com/dollargeneral/rest/locatorsearch?lang=en_US'
-        for i in range(0, 3):
-            try:
-                r = requests.post(url, data=json.dumps(payload))
-                break
-            except Exception:
-                time.sleep(random.randint(1, 5))
-                r = None
-                pass
-        return r
-
-    def __read_dg_file(self, dg_cache_file):
+    def read_dg_file(self, dg_cache_file):
         with open(dg_cache_file, 'r') as jfh:
             response = json.load(jfh)
         return response
-
-    def __save_dg_file(self, dg_cache_file, response):
-        with open(dg_cache_file, 'w') as jfh:
-            json.dump(response, jfh)
             
-    def __check_dg_file(self, dg_cache_file):
+    def check_dg_file(self, dg_cache_file):
         if os.path.exists(dg_cache_file):
             last_mod = os.path.getmtime(dg_cache_file)  # outputs seconds.microseconds
             if last_mod > cache_refresh_time:
                 return True
         return False
-
+    
+    def save_zip_cache_response(self, zipcode, json_resp):
+        dg_cache_file = os.path.join(response_folder, f'{zipcode}.json')
+        with open(dg_cache_file, 'w') as jfh:
+            json.dump(json_resp, jfh)
+    
     def get_dg_info(self, zipcode):
-        dg_cache_file = os.path.join(response_folder, '{}.json'.format(zipcode))
+        dg_cache_file = os.path.join(response_folder, f'{zipcode}.json')
         cached_check = self.__check_dg_file(dg_cache_file)
         if self.repull is False and cached_check:  # read from cache file
             reply = self.__read_dg_file(dg_cache_file)
@@ -92,8 +72,13 @@ class dg_stores(object):
                 print(reply)
                 
         if self.repull or cached_check is False:
-            reply = self.__call_dg_api(zipcode)
+            lat, long = self.__get_zip_latlong(zipcode)
+            if not lat and not long:
+                return None
+            reply = self.__call_dg_api(lat, long)
             if reply is not None:
+                if debug:
+                    print('Response: ', reply)
                 reply = reply.json()
                 self.__save_dg_file(dg_cache_file, reply)
             else:
@@ -105,8 +90,14 @@ class dg_stores(object):
         
     def __set_csv_headers(self, store):
         self.csvHeaders = list(store.keys())
+        self.csvHeaders.remove('storeServices')
+        self.csvHeaders.remove('distance')
         self.csvHeaders.sort()
         print(self.csvHeaders)
+    
+    def set_headers(self, store):
+        self.csvHeaders = list(store.keys())
+        self.csvHeaders.sort()
 
     def find_dg_stores(self):
         for zipcode in self.zips:
@@ -115,16 +106,14 @@ class dg_stores(object):
             if r is None:
                 continue
             if debug:
-                if 'collectioncount' in r['response']:
-                    print('records: %d' % r['response']['collectioncount'])
-                elif 'message' in r.json()['response']:
-                    print('records: %s' % r['response']['message'])
+                if 'paginationInfo' in r:
+                    print('records: %s' % r.get('paginationInfo'))
                 else:
-                    print('records: %s' % r)
+                    print('response: %s' % r)
                 
             try:
-                if 'collection' in r['response']:
-                    for store in r['response']['collection']:
+                if 'stores' in r:
+                    for store in r.get('stores'):
                         if self.get_headers:
                             self.__set_csv_headers(store)
                             self.get_headers = False
@@ -139,16 +128,14 @@ class dg_stores(object):
             if r is None:
                 continue
             if debug:
-                if 'collectioncount' in r['response']:
-                    print('records: %d' % r['response']['collectioncount'])
-                elif 'message' in r.json()['response']:
-                    print('records: %s' % r['response']['message'])
+                if 'paginationInfo' in r:
+                    print('records: %s' % r.get('paginationInfo'))
                 else:
-                    print('records: %s' % r)
+                    print('response: %s' % r)
 
             try:
-                if 'collection' in r['response']:
-                    for store in r['response']['collection']:
+                if 'stores' in r:
+                    for store in r.get('stores'):
                         if self.get_headers:
                             self.__set_csv_headers(store)
                             self.get_headers = False
@@ -156,30 +143,46 @@ class dg_stores(object):
             except Exception as e:
                 print('Error: {}'.format(e))
                 print(r.json())
+    
+    def set_csv_line(self, store):
+        self.__generate_csv_line(store)
 
     def __generate_csv_line(self, store):
         csvLine = ''
         comma = False
         for csvCol in self.csvHeaders:
+            if csvCol in ['storeServices', 'distance']:
+                continue
             if comma:
                 csvLine += ','
-            #print('{}: {}'.format(type(store[csvCol]), store[csvCol]))
+            # print('{}: {}'.format(type(store[csvCol]), store[csvCol]))
             if store[csvCol] is None:
                 csvLine += '""'
             elif isinstance(store[csvCol], int) or int_regex.match(str(store[csvCol])):
                 csvLine += '{}'.format(store[csvCol])
-            else:
+            elif isinstance(store[csvCol], str):
                 csvLine += '"{}"'.format(store[csvCol].replace('"', '\"'))
+            else:
+                csvLine += '""' # not bothering with parsing storeServices
             comma = True
         if debug:
             print(csvLine)
-        if store['clientkey'] not in self.stores:
-            #print(csvLine)
-            self.stores[store['clientkey']] = csvLine
+        if store['storeNumber'] not in self.stores:
+            # print(csvLine)
+            self.stores[store['storeNumber']] = csvLine
 
     def get_zipcodes(self):
-        zc = zipcodes()
-        self.zips = zc.get_zipcodes()
+        zc = []
+        with open('zipcode_locations.csv', 'r') as fh:
+            csvr = csv.DictReader(fh, fieldnames=[
+                'zipcode', 'latitude', 'longitude', 'city', 'state'
+            ])
+            for entry in csvr:
+                if entry['zipcode'] == 'zipcode':
+                    continue
+                zc.append(entry['zipcode'])
+
+        self.zips = zc
         for i in range(0, 99999):
             if len(str(i)) < 2:
                 test_zip = '0000{}'.format(i)
@@ -194,6 +197,7 @@ class dg_stores(object):
             if test_zip not in self.zips:
                 self.unknown_zips.append(test_zip)
         print(self.unknown_zips)
+        return self.zips
 
     def save_dg_stores(self):
         headers = False
@@ -201,15 +205,7 @@ class dg_stores(object):
             if headers is False:
                 csv.writer(fdgh).writerow(self.csvHeaders)
                 headers = True
-            for i in self.stores:
-                fdgh.write('{}\n'.format(self.stores[i]))
+            for store_id in self.stores:
+                print(store_id, '->', self.stores[store_id])
+                fdgh.write(self.stores[store_id] + '\n')
         return
-
-
-if __name__ == '__main__':
-    if not os.path.isdir(response_folder):
-        os.mkdir(response_folder)
-    dg = dg_stores(appKey, repull)
-    dg.get_zipcodes()
-    dg.find_dg_stores()
-    dg.save_dg_stores()
