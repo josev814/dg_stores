@@ -33,12 +33,12 @@ jobs:
       run: |
         while true
         do
-          if [[ $(ls | grep completed | wc -l) -gt 0 ]]
+          if [[ $(docker ps | grep collector | wc -l) -gt 0 ]]
           then
             break
           fi
           echo "Not completed yet"
-          ls -lat | grep csv | head -n 1
+          ls -lat | grep csv
           sleep 30
         done
       
