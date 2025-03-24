@@ -96,8 +96,7 @@ class dg_stores(object):
         print(self.csvHeaders)
     
     def set_headers(self, store):
-        self.csvHeaders = list(store.keys())
-        self.csvHeaders.sort()
+        self.__set_csv_headers(store)
 
     def find_dg_stores(self):
         for zipcode in self.zips:
@@ -163,12 +162,11 @@ class dg_stores(object):
             elif isinstance(store[csvCol], str):
                 csvLine += '"{}"'.format(store[csvCol].replace('"', '\"'))
             else:
-                csvLine += '""' # not bothering with parsing storeServices
+                csvLine += '""'  # not bothering with parsing
             comma = True
         if debug:
             print(csvLine)
         if store['storeNumber'] not in self.stores:
-            # print(csvLine)
             self.stores[store['storeNumber']] = csvLine
 
     def get_zipcodes(self):
@@ -206,6 +204,5 @@ class dg_stores(object):
                 csv.writer(fdgh).writerow(self.csvHeaders)
                 headers = True
             for store_id in self.stores:
-                print(store_id, '->', self.stores[store_id])
                 fdgh.write(self.stores[store_id] + '\n')
         return
