@@ -1,6 +1,9 @@
 name: Run Docker Compose Collector
 
 on:
+  pull_request:
+    branches:
+      - master
   push:
     branches:
       - main
