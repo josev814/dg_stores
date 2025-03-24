@@ -35,79 +35,6 @@ class dg_stores(object):
         # self.load_cookies_from_config()
         self.session = requests.Session()
     
-    def start_session(self):
-        """Make an initial request to get session and cookies."""
-        try:
-            response = self.session.get(self.dg_url, headers=self.url_headers)
-            if response.status_code == 200:
-                print("Session started and cookies stored.")
-                # Optionally, you can print cookies to verify they are set
-                print(f"Cookies: {self.session.cookies}")
-                print(response.content)
-            else:
-                print(f"Failed to start session. Status code: {response.status_code}")
-        except Exception as e:
-            print(f"Error starting session: {e}")
-        if debug:
-            self.print_session_info()
-
-    def print_session_info(self):
-        """Print session details such as cookies, headers, etc."""
-        print("\n--- Session Information ---")
-        
-        # Print cookies stored in the session
-        print("Cookies:")
-        for cookie in self.session.cookies:
-            print(f"  {cookie.name}: {cookie.value}")
-        
-        # Print headers stored in the session
-        print("\nHeaders:")
-        for key, value in self.session.headers.items():
-            print(f"  {key}: {value}")
-        
-        # You can also print other session attributes like proxies, auth, etc.
-        print("\nOther Session Info:")
-        print(f"  Proxies: {self.session.proxies}")
-        print(f"  Authentication: {self.session.auth}")
-        
-        print("\n--------------------------")
-        exit()
-    
-    # def load_cookies_from_config(self):
-    #     """Manually load cookies from the config file and add them to the cookies jar."""
-    #     try:
-    #         with open(self.config_file, 'r') as config:
-    #             cookies_section = False
-    #             for line in config:
-    #                 line = line.strip()
-
-    #                 # Detect the cookies section
-    #                 if line.startswith('[Cookies]'):
-    #                     cookies_section = True
-    #                     continue
-    #                 elif cookies_section and not line.startswith('['):
-    #                     # Parse key-value pairs for cookies
-    #                     if '=' in line:
-    #                         cookie_name, cookie_value = line.split('=', 1)
-    #                         cookie_name = cookie_name.strip()
-    #                         cookie_value = cookie_value.strip()
-    #                         self.set_cookie(cookie_name, cookie_value)
-    #                 elif cookies_section and line.startswith('['):
-    #                     # Stop reading cookies if another section is found
-    #                     break
-    #     except Exception as e:
-    #         print(f"Error loading cookies from config: {e}")
-    
-    # def set_cookie(self, name, value, domain=None, path=None):
-    #     """Sets a cookie manually."""
-    #     cookie = requests.cookies.create_cookie(name, value)
-    #     if domain:
-    #         cookie.domain = domain
-    #     if path:
-    #         cookie.path = path
-    #     self.cookies.set_cookie(cookie)  # Add the cookie to the jar
-    #     print(f"Cookie set: {name} = {value}")
-    
     def __get_zip_latlong(self, zipcode):
         with open('zipcode_locations.csv', 'r') as fh:
             csvr = csv.DictReader(fh, fieldnames=[
@@ -119,45 +46,23 @@ class dg_stores(object):
                     lat, long = entry['latitude'], entry['longitude']
             return (lat, long)
 
-    def __call_dg_api(self, lat, long, radius=25):
-        url = f'{self.dg_url}/bin/omni/pickup/storeSearchInventory?latitude={lat}&longitude={long}&radius={radius}&storeTypes=&storeServices='
-        if debug:
-            print(f'Calling {url}')
-        r = None
-        for attempt in range(3):
-            try:
-                r = self.session.get(url, headers=self.url_headers, cookies=self.session.cookies)
-                if r.status_code != 200:
-                    raise Exception(f'Received status: {r.status_code}')
-                break
-            except Exception as e:
-                jitter_time = random.randint(1, 5) + attempt * 2  # Increase delay for each retry attempt
-                print(
-                    "Attempt %d failed, retrying in %d seconds..." % (attempt + 1, jitter_time)
-                )
-                print('Error: %s' % e)
-                time.sleep(jitter_time)
-                pass
-        if debug:
-            print('Received content: ', r.content)
-        return r
-
-    def __read_dg_file(self, dg_cache_file):
+    def read_dg_file(self, dg_cache_file):
         with open(dg_cache_file, 'r') as jfh:
             response = json.load(jfh)
         return response
-
-    def __save_dg_file(self, dg_cache_file, response):
-        with open(dg_cache_file, 'w') as jfh:
-            json.dump(response, jfh)
             
-    def __check_dg_file(self, dg_cache_file):
+    def check_dg_file(self, dg_cache_file):
         if os.path.exists(dg_cache_file):
             last_mod = os.path.getmtime(dg_cache_file)  # outputs seconds.microseconds
             if last_mod > cache_refresh_time:
                 return True
         return False
-
+    
+    def save_zip_cache_response(self, zipcode, json_resp):
+        dg_cache_file = os.path.join(response_folder, f'{zipcode}.json')
+        with open(dg_cache_file, 'w') as jfh:
+            json.dump(json_resp, jfh)
+    
     def get_dg_info(self, zipcode):
         dg_cache_file = os.path.join(response_folder, f'{zipcode}.json')
         cached_check = self.__check_dg_file(dg_cache_file)
@@ -185,8 +90,14 @@ class dg_stores(object):
         
     def __set_csv_headers(self, store):
         self.csvHeaders = list(store.keys())
+        self.csvHeaders.remove('storeServices')
+        self.csvHeaders.remove('distance')
         self.csvHeaders.sort()
         print(self.csvHeaders)
+    
+    def set_headers(self, store):
+        self.csvHeaders = list(store.keys())
+        self.csvHeaders.sort()
 
     def find_dg_stores(self):
         for zipcode in self.zips:
@@ -232,11 +143,16 @@ class dg_stores(object):
             except Exception as e:
                 print('Error: {}'.format(e))
                 print(r.json())
+    
+    def set_csv_line(self, store):
+        self.__generate_csv_line(store)
 
     def __generate_csv_line(self, store):
         csvLine = ''
         comma = False
         for csvCol in self.csvHeaders:
+            if csvCol in ['storeServices', 'distance']:
+                continue
             if comma:
                 csvLine += ','
             # print('{}: {}'.format(type(store[csvCol]), store[csvCol]))
@@ -289,15 +205,7 @@ class dg_stores(object):
             if headers is False:
                 csv.writer(fdgh).writerow(self.csvHeaders)
                 headers = True
-            csv.writer(fdgh).writerows(self.stores)
+            for store_id in self.stores:
+                print(store_id, '->', self.stores[store_id])
+                fdgh.write(self.stores[store_id] + '\n')
         return
-
-
-if __name__ == '__main__':
-    if not os.path.isdir(response_folder):
-        os.mkdir(response_folder)
-    dg = dg_stores('config.txt', repull)
-    dg.start_session()
-    dg.get_zipcodes()
-    dg.find_dg_stores()
-    dg.save_dg_stores()
