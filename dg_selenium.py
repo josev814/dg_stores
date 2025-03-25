@@ -142,11 +142,13 @@ if __name__ == "__main__":
                     continue
                 if 'message' in json_response:
                     print('Error:', json_response['message'])
-                    if 'invalid session id' in json_response['message']:
+                    if 'invalid session id' == json_response['message']:
                         api_client.__jitter_sleep(60)
+                        api_client.close()
                         api_client = None
                         break  # break so we can start processing again
-                    continue
+                    else:
+                        continue
                 dg.save_zip_cache_response(cur_zip, json_response)
                 proc_zips.remove(cur_zip)
                 print('Left to Process:', len(proc_zips))
