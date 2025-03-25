@@ -107,23 +107,30 @@ class ApiClient:
         self.driver.quit()
 
 
+def get_api_client():
+    # Initialize the API client
+    if len(sys.argv) > 1:
+        apiClient = ApiClient(sys.argv[1])
+    else:
+        apiClient = ApiClient()
+    return apiClient
+
 # Example usage
 if __name__ == "__main__":
     if not os.path.isfile('zipcode_locations.csv'):
         collect_latlongs()
     dg = dg_stores('config.txt', repull)
     zips = dg.get_zipcodes()
-    # Initialize the API client
-    if len(sys.argv) > 1:
-        api_client = ApiClient(sys.argv[1])
-    else:
-        api_client = ApiClient()
-
-    # Step 1: Start the session by making an initial request to dollargeneral.com using Selenium
-    api_client.start_session()
+    api_client = None
     csv_headers = None
     proc_zips = zips.copy()
     while len(proc_zips) > 0:
+        if not api_client:
+            # new api client
+            api_client = get_api_client()    
+            # Step 1: Start the session by making an initial request to dollargeneral.com using Selenium
+            api_client.start_session()
+
         for cur_zip in proc_zips:
             resp_file = os.path.join(response_folder, f'{cur_zip}.json')
             if not dg.check_dg_file(resp_file):  # not cached_response
@@ -137,6 +144,7 @@ if __name__ == "__main__":
                     print('Error:', json_response['message'])
                     if 'invalid session id' in json_response['message']:
                         api_client.__jitter_sleep(60)
+                        api_client = None
                         break  # break so we can start processing again
                     continue
                 dg.save_zip_cache_response(cur_zip, json_response)
