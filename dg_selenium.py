@@ -141,8 +141,10 @@ if __name__ == "__main__":
                     continue
                 dg.save_zip_cache_response(cur_zip, json_response)
                 proc_zips.remove(cur_zip)
-                len(proc_zips)
+                print('Left to Process:', len(proc_zips))
                 time.sleep(5)
+            else:
+                proc_zips.remove(cur_zip)
     api_client.close()
     print('Building csv from cached responses')
     for cur_zip in zips:
