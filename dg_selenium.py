@@ -124,37 +124,49 @@ if __name__ == "__main__":
     api_client = None
     csv_headers = None
     proc_zips = zips.copy()
+
+    # remove cached files from list
+    for cur_zip in proc_zips:
+        resp_file = os.path.join(response_folder, f'{cur_zip}.json')
+        if dg.check_dg_file(resp_file):  # cached_response
+            proc_zips.remove(cur_zip)
+
     while len(proc_zips) > 0:
         if not api_client:
             # new api client
-            api_client = get_api_client()    
+            print('Getting new api client')
+            api_client = get_api_client()
             # Step 1: Start the session by making an initial request to dollargeneral.com using Selenium
             api_client.start_session()
 
+        # uncached_response
         for cur_zip in proc_zips:
             resp_file = os.path.join(response_folder, f'{cur_zip}.json')
-            if not dg.check_dg_file(resp_file):  # not cached_response
-                print('API call for:', cur_zip)
-                lat, long = api_client.get_zip_lat_long(cur_zip)
-                json_response = api_client.call_dg_api(lat, long)
-                if not json_response:
-                    print("Failed to get a valid response.")
+            print('API call for:', cur_zip)
+            lat, long = api_client.get_zip_lat_long(cur_zip)
+            json_response = api_client.call_dg_api(lat, long)
+            if not json_response:
+                print("Failed to get a valid response.")
+                api_client.close()
+                api_client = None
+                proc_zips.remove(cur_zip)
+                continue
+            if 'message' in json_response:
+                print('Error:', json_response['message'])
+                if 'invalid session id' == json_response['message']:
+                    api_client.__jitter_sleep(60)
+                    api_client.close()
+                    api_client = None
+                    break  # break so we can start processing again
+                else:
+                    api_client.close()
+                    api_client = None
+                    proc_zips.remove(cur_zip)
                     continue
-                if 'message' in json_response:
-                    print('Error:', json_response['message'])
-                    if 'invalid session id' == json_response['message']:
-                        api_client.__jitter_sleep(60)
-                        api_client.close()
-                        api_client = None
-                        break  # break so we can start processing again
-                    else:
-                        continue
-                dg.save_zip_cache_response(cur_zip, json_response)
-                proc_zips.remove(cur_zip)
-                print('Left to Process:', len(proc_zips))
-                time.sleep(5)
-            else:
-                proc_zips.remove(cur_zip)
+            dg.save_zip_cache_response(cur_zip, json_response)
+            proc_zips.remove(cur_zip)
+            print('Left to Process:', len(proc_zips))
+            time.sleep(5)
     api_client.close()
     print('Building csv from cached responses')
     for cur_zip in zips:
