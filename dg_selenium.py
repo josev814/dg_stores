@@ -130,7 +130,7 @@ if __name__ == "__main__":
     # remove cached files from list
     for cur_zip in proc_zips:
         resp_file = os.path.join(response_folder, f'{cur_zip}.json')
-        if not dg.check_dg_file(resp_file):  # cached_response
+        if dg.use_dg_file_cache(resp_file):  # cached_response
             proc_zips.remove(cur_zip)
 
     while len(proc_zips) > 0:

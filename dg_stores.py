@@ -49,11 +49,12 @@ class dg_stores(object):
             response = json.load(jfh)
         return response
             
-    def check_dg_file(self, dg_cache_file):
-        if os.path.exists(dg_cache_file):
-            last_mod = os.path.getmtime(dg_cache_file)  # outputs seconds.microseconds
-            if time.time() - last_mod > cache_refresh_time:
-                return True
+    def use_dg_file_cache(self, dg_cache_file):
+        if not os.path.exists(dg_cache_file):
+            return False
+        last_mod = os.path.getmtime(dg_cache_file)  # outputs seconds.microseconds
+        if last_mod < cache_refresh_time:
+            return True
         return False
     
     def save_zip_cache_response(self, zipcode, json_resp):
@@ -63,7 +64,7 @@ class dg_stores(object):
     
     def get_dg_info(self, zipcode):
         dg_cache_file = os.path.join(response_folder, f'{zipcode}.json')
-        cached_check = self.__check_dg_file(dg_cache_file)
+        cached_check = self.use_dg_file_cache(dg_cache_file)
         if self.repull is False and cached_check:  # read from cache file
             reply = self.__read_dg_file(dg_cache_file)
             if debug:
