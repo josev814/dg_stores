@@ -12,7 +12,6 @@ int_regex = re.compile(r'^(\-)?[0-9]+(.[0-9]+)?$')
 debug = False
 repull = False  # set to true to update all cached files
 refresh_cache = 60*60*24*31  # every 31 days
-cache_refresh_time = time.time() - refresh_cache
 today = datetime.datetime.date(datetime.datetime.now())
 response_folder = 'dg_responses'
 
@@ -53,10 +52,8 @@ class dg_stores(object):
         if not os.path.exists(dg_cache_file):
             return False
         last_mod = os.path.getmtime(dg_cache_file)  # outputs seconds.microseconds
-        if last_mod < cache_refresh_time:
-            return True
-        return False
-    
+        return time.time() - last_mod > refresh_cache
+        
     def save_zip_cache_response(self, zipcode, json_resp):
         dg_cache_file = os.path.join(response_folder, f'{zipcode}.json')
         with open(dg_cache_file, 'w') as jfh:
