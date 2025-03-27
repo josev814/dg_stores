@@ -52,7 +52,7 @@ class dg_stores(object):
     def check_dg_file(self, dg_cache_file):
         if os.path.exists(dg_cache_file):
             last_mod = os.path.getmtime(dg_cache_file)  # outputs seconds.microseconds
-            if last_mod > cache_refresh_time:
+            if time.time() - last_mod > cache_refresh_time:
                 return True
         return False
     

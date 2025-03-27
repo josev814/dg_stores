@@ -115,6 +115,7 @@ def get_api_client():
         apiClient = ApiClient()
     return apiClient
 
+
 # Example usage
 if __name__ == "__main__":
     if not os.path.isfile('zipcode_locations.csv'):
@@ -123,12 +124,13 @@ if __name__ == "__main__":
     zips = dg.get_zipcodes()
     api_client = None
     csv_headers = None
+    total_zips = len(zips)
     proc_zips = zips.copy()
 
     # remove cached files from list
     for cur_zip in proc_zips:
         resp_file = os.path.join(response_folder, f'{cur_zip}.json')
-        if dg.check_dg_file(resp_file):  # cached_response
+        if not dg.check_dg_file(resp_file):  # cached_response
             proc_zips.remove(cur_zip)
 
     while len(proc_zips) > 0:
@@ -150,7 +152,7 @@ if __name__ == "__main__":
                 api_client.close()
                 api_client = None
                 proc_zips.remove(cur_zip)
-                continue
+                break
             if 'message' in json_response:
                 print('Error:', json_response['message'])
                 if 'invalid session id' == json_response['message']:
@@ -162,10 +164,10 @@ if __name__ == "__main__":
                     api_client.close()
                     api_client = None
                     proc_zips.remove(cur_zip)
-                    continue
+                    break
             dg.save_zip_cache_response(cur_zip, json_response)
             proc_zips.remove(cur_zip)
-            print('Left to Process:', len(proc_zips))
+            print('Left to Process:', len(proc_zips), 'of', total_zips)
             time.sleep(5)
     api_client.close()
     print('Building csv from cached responses')
