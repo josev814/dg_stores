@@ -52,7 +52,7 @@ class dg_stores(object):
         if not os.path.exists(dg_cache_file):
             return False
         last_mod = os.path.getmtime(dg_cache_file)  # outputs seconds.microseconds
-        return time.time() - last_mod > refresh_cache
+        return time.time() - last_mod < refresh_cache
         
     def save_zip_cache_response(self, zipcode, json_resp):
         dg_cache_file = os.path.join(response_folder, f'{zipcode}.json')
