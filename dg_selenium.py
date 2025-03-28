@@ -107,48 +107,80 @@ class ApiClient:
         self.driver.quit()
 
 
+def get_api_client():
+    # Initialize the API client
+    if len(sys.argv) > 1:
+        apiClient = ApiClient(sys.argv[1])
+    else:
+        apiClient = ApiClient()
+    return apiClient
+
+
 # Example usage
 if __name__ == "__main__":
     if not os.path.isfile('zipcode_locations.csv'):
         collect_latlongs()
     dg = dg_stores('config.txt', repull)
     zips = dg.get_zipcodes()
-    # Initialize the API client
-    if len(sys.argv) > 1:
-        api_client = ApiClient(sys.argv[1])
-    else:
-        api_client = ApiClient()
-
-    # Step 1: Start the session by making an initial request to dollargeneral.com using Selenium
-    api_client.start_session()
+    api_client = None
     csv_headers = None
+    total_zips = len(zips)
+    proc_zips = zips.copy()
 
-    for cur_zip in zips:
-        print(cur_zip)
-
-        # Step 2: Make an API call using the session, which retains the cookies
-        lat, long = api_client.get_zip_lat_long(cur_zip)
+    # remove cached files from list
+    for cur_zip in proc_zips:
         resp_file = os.path.join(response_folder, f'{cur_zip}.json')
-        if dg.check_dg_file(resp_file):  # cached_response
-            print('reading from cache')
-            json_response = dg.read_dg_file(resp_file)
-        else:
-            print('api request')
+        if dg.use_dg_file_cache(resp_file):  # cached_response
+            proc_zips.remove(cur_zip)
+
+    while len(proc_zips) > 0:
+        if not api_client:
+            # new api client
+            print('Getting new api client')
+            api_client = get_api_client()
+            # Step 1: Start the session by making an initial request to dollargeneral.com using Selenium
+            api_client.start_session()
+
+        # uncached_response
+        for cur_zip in proc_zips:
+            resp_file = os.path.join(response_folder, f'{cur_zip}.json')
+            print('API call for:', cur_zip)
+            lat, long = api_client.get_zip_lat_long(cur_zip)
             json_response = api_client.call_dg_api(lat, long)
-            if json_response:
-                dg.save_zip_cache_response(cur_zip, json_response)
-            else:
+            if not json_response:
                 print("Failed to get a valid response.")
-                continue
-        
-        if len(json_response['stores']) > 0:
-            if not csv_headers:
-                dg.set_headers(json_response['stores'][0])
-                csv_headers = dg.csvHeaders
-            for store in json_response['stores']:
-                print(store)
-                dg.set_csv_line(store)
+                api_client.close()
+                api_client = None
+                proc_zips.remove(cur_zip)
+                break
+            if 'message' in json_response:
+                print('Error:', json_response['message'])
+                if 'invalid session id' == json_response['message']:
+                    api_client.__jitter_sleep(60)
+                    api_client.close()
+                    api_client = None
+                    break  # break so we can start processing again
+                else:
+                    api_client.close()
+                    api_client = None
+                    proc_zips.remove(cur_zip)
+                    break
+            dg.save_zip_cache_response(cur_zip, json_response)
+            proc_zips.remove(cur_zip)
+            print('Left to Process:', len(proc_zips), 'of', total_zips)
+            time.sleep(5)
+    api_client.close()
+    print('Building csv from cached responses')
+    for cur_zip in zips:
+        resp_file = os.path.join(response_folder, f'{cur_zip}.json')
+        if os.path.is_file(resp_file):
+            json_response = dg.read_dg_file(resp_file)
+            if 'stores' in json_response and len(json_response['stores']) > 0:
+                if not csv_headers:
+                    dg.set_headers(json_response['stores'][0])
+                    csv_headers = dg.csvHeaders
+                for store in json_response['stores']:
+                    dg.set_csv_line(store)
 
     # Close the Selenium WebDriver when done
-    api_client.close()
     dg.save_dg_stores()

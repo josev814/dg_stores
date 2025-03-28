@@ -3,18 +3,15 @@ import csv
 import re
 import time
 import datetime
-import random
 import os
 
 import requests
-from requests.cookies import RequestsCookieJar
 
 
 int_regex = re.compile(r'^(\-)?[0-9]+(.[0-9]+)?$')
-debug = True
+debug = False
 repull = False  # set to true to update all cached files
-refresh_cache = 60*60*72
-cache_refresh_time = time.time() - refresh_cache
+refresh_cache = 60*60*24*31  # every 31 days
 today = datetime.datetime.date(datetime.datetime.now())
 response_folder = 'dg_responses'
 
@@ -51,13 +48,12 @@ class dg_stores(object):
             response = json.load(jfh)
         return response
             
-    def check_dg_file(self, dg_cache_file):
-        if os.path.exists(dg_cache_file):
-            last_mod = os.path.getmtime(dg_cache_file)  # outputs seconds.microseconds
-            if last_mod > cache_refresh_time:
-                return True
-        return False
-    
+    def use_dg_file_cache(self, dg_cache_file):
+        if not os.path.exists(dg_cache_file):
+            return False
+        last_mod = os.path.getmtime(dg_cache_file)  # outputs seconds.microseconds
+        return time.time() - last_mod < refresh_cache
+        
     def save_zip_cache_response(self, zipcode, json_resp):
         dg_cache_file = os.path.join(response_folder, f'{zipcode}.json')
         with open(dg_cache_file, 'w') as jfh:
@@ -65,7 +61,7 @@ class dg_stores(object):
     
     def get_dg_info(self, zipcode):
         dg_cache_file = os.path.join(response_folder, f'{zipcode}.json')
-        cached_check = self.__check_dg_file(dg_cache_file)
+        cached_check = self.use_dg_file_cache(dg_cache_file)
         if self.repull is False and cached_check:  # read from cache file
             reply = self.__read_dg_file(dg_cache_file)
             if debug:
@@ -96,8 +92,7 @@ class dg_stores(object):
         print(self.csvHeaders)
     
     def set_headers(self, store):
-        self.csvHeaders = list(store.keys())
-        self.csvHeaders.sort()
+        self.__set_csv_headers(store)
 
     def find_dg_stores(self):
         for zipcode in self.zips:
@@ -163,12 +158,11 @@ class dg_stores(object):
             elif isinstance(store[csvCol], str):
                 csvLine += '"{}"'.format(store[csvCol].replace('"', '\"'))
             else:
-                csvLine += '""' # not bothering with parsing storeServices
+                csvLine += '""'  # not bothering with parsing
             comma = True
         if debug:
             print(csvLine)
         if store['storeNumber'] not in self.stores:
-            # print(csvLine)
             self.stores[store['storeNumber']] = csvLine
 
     def get_zipcodes(self):
@@ -206,6 +200,5 @@ class dg_stores(object):
                 csv.writer(fdgh).writerow(self.csvHeaders)
                 headers = True
             for store_id in self.stores:
-                print(store_id, '->', self.stores[store_id])
                 fdgh.write(self.stores[store_id] + '\n')
         return
