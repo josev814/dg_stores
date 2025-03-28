@@ -128,10 +128,12 @@ if __name__ == "__main__":
     proc_zips = zips.copy()
 
     # remove cached files from list
-    for cur_zip in proc_zips:
-        resp_file = os.path.join(response_folder, f'{cur_zip}.json')
-        if dg.use_dg_file_cache(resp_file):  # cached_response
-            proc_zips.remove(cur_zip)
+    for i in range(6):  # so stupid to have to do this
+        for cur_zip in proc_zips:
+            resp_file = os.path.join(response_folder, f'{cur_zip}.json')
+            if dg.use_dg_file_cache(resp_file):  # cached_response
+                proc_zips.remove(cur_zip)
+        time.sleep(10)
 
     while len(proc_zips) > 0:
         if not api_client:
