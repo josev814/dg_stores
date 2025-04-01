@@ -175,7 +175,7 @@ if __name__ == "__main__":
     print('Building csv from cached responses')
     for cur_zip in zips:
         resp_file = os.path.join(response_folder, f'{cur_zip}.json')
-        if os.path.is_file(resp_file):
+        if os.path.isfile(resp_file):
             json_response = dg.read_dg_file(resp_file)
             if 'stores' in json_response and len(json_response['stores']) > 0:
                 if not csv_headers:
