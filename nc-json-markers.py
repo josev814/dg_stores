@@ -1,7 +1,7 @@
 import json
 import csv
 
-csv_file = 'dg_locations-2020-06-29.csv'
+csv_file = 'dg_locations-2025-04-01.csv'
 
 with open(csv_file, 'r') as csvh:
     reader = csv.DictReader(csvh)
