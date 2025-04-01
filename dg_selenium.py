@@ -128,10 +128,12 @@ if __name__ == "__main__":
     proc_zips = zips.copy()
 
     # remove cached files from list
-    for cur_zip in proc_zips:
-        resp_file = os.path.join(response_folder, f'{cur_zip}.json')
-        if dg.use_dg_file_cache(resp_file):  # cached_response
-            proc_zips.remove(cur_zip)
+    for i in range(6):  # so stupid to have to do this
+        for cur_zip in proc_zips:
+            resp_file = os.path.join(response_folder, f'{cur_zip}.json')
+            if dg.use_dg_file_cache(resp_file):  # cached_response
+                proc_zips.remove(cur_zip)
+        time.sleep(10)
 
     while len(proc_zips) > 0:
         if not api_client:
@@ -173,7 +175,7 @@ if __name__ == "__main__":
     print('Building csv from cached responses')
     for cur_zip in zips:
         resp_file = os.path.join(response_folder, f'{cur_zip}.json')
-        if os.path.is_file(resp_file):
+        if os.path.isfile(resp_file):
             json_response = dg.read_dg_file(resp_file)
             if 'stores' in json_response and len(json_response['stores']) > 0:
                 if not csv_headers:
